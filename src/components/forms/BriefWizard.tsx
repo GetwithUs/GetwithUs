@@ -27,18 +27,22 @@ function preselectService() {
   state.update({ services: [slug] });
 }
 
-/** Restores the saved draft from sessionStorage after mount, so server and client render the same first frame. */
-function useBriefHydration(): boolean {
-  const [hydrated, setHydrated] = useState(false);
+/**
+ * Restores the saved draft from sessionStorage after mount, so server and client
+ * render the same first frame. `resumed`: the draft came back past the first
+ * step, so the visitor started the brief before a refresh.
+ */
+function useBriefHydration(): { hydrated: boolean; resumed: boolean } {
+  const [hydration, setHydration] = useState({ hydrated: false, resumed: false });
   useEffect(() => {
     const unsubscribe = useBriefStore.persist.onFinishHydration(() => {
       preselectService();
-      setHydrated(true);
+      setHydration({ hydrated: true, resumed: useBriefStore.getState().step > 1 });
     });
     void useBriefStore.persist.rehydrate();
     return unsubscribe;
   }, []);
-  return hydrated;
+  return hydration;
 }
 
 /**
@@ -46,7 +50,7 @@ function useBriefHydration(): boolean {
  * Continue; the draft survives Back and refresh; step 5 confirms the email.
  */
 export default function BriefWizard() {
-  const hydrated = useBriefHydration();
+  const { hydrated, resumed } = useBriefHydration();
   const step = useBriefStore((state) => state.step);
   const pending = useBriefStore((state) => state.pending);
   const done = useBriefStore((state) => state.done);
@@ -113,11 +117,13 @@ export default function BriefWizard() {
     <div
       ref={panel}
       className="grid gap-10 rounded-panel border border-line bg-card p-6 md:p-10"
-      // The first focus inside the brief counts as starting it, once per page load.
+      // The first focus inside the brief counts as starting it, once per page load. A draft
+      // restored past step 1 was started before the refresh, and the code step focuses its
+      // first box by itself, so a resumed brief does not count again.
       onFocus={() => {
         if (started.current || !hydrated) return;
         started.current = true;
-        track("form_started", { form: "brief" });
+        if (!resumed) track("form_started", { form: "brief" });
       }}
     >
       <BriefProgress step={hydrated ? step : 1} done={done} />

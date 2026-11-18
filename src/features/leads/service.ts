@@ -177,15 +177,22 @@ async function sendLeadConfirmation(lead: Lead, requestId: string): Promise<void
 /**
  * Work that follows a newly verified lead, run after the response is sent: the
  * client's confirmation email (not for API leads), the team notifications, and
- * the analytics event. Failures are logged and never reach the client. The event
- * is sent even if the emails or notifications throw, so the lead is still counted.
+ * the analytics event. Each runs on its own, so one that throws never stops the
+ * others (the team still hears about the lead if the confirmation email fails).
+ * Failures are logged and never reach the client.
  */
 export async function handleLeadVerified(lead: Lead, requestId: string): Promise<void> {
-  try {
-    if (lead.source !== "api") await sendLeadConfirmation(lead, requestId);
-    await notifyLeadVerified(lead, { requestId });
-  } finally {
-    await captureServerEvent("lead_verified", lead.id, verifiedLeadFacts(lead));
+  const steps: (() => Promise<unknown>)[] = [
+    () => notifyLeadVerified(lead, { requestId }),
+    () => captureServerEvent("lead_verified", lead.id, verifiedLeadFacts(lead)),
+  ];
+  if (lead.source !== "api") steps.unshift(() => sendLeadConfirmation(lead, requestId));
+  // async turns a step that throws straight away into a rejection, like one that fails later.
+  const results = await Promise.allSettled(steps.map(async (step) => step()));
+  for (const result of results) {
+    if (result.status === "rejected") {
+      logger.error("Lead follow-up failed", { requestId, leadId: lead.id, error: result.reason });
+    }
   }
 }
 

@@ -34,7 +34,12 @@ let client: PostHog | null = null;
 let started = false;
 // Events from before PostHog has loaded, with the page and time they happened on; a handful
 // at most, so the cap only guards against a loop.
-type QueuedEvent = { event: AnalyticsEvent; properties?: EventProperties; url: string; at: Date };
+type QueuedEvent = {
+  event: AnalyticsEvent;
+  properties?: EventProperties;
+  page: { $current_url: string; $host: string; $pathname: string };
+  at: Date;
+};
 const queue: QueuedEvent[] = [];
 const QUEUE_LIMIT = 20;
 
@@ -60,18 +65,31 @@ export function track(event: AnalyticsEvent, properties?: EventProperties): void
   if (!publicEnv.posthogKey) return;
   if (client) client.capture(event, properties);
   else if (queue.length < QUEUE_LIMIT) {
-    queue.push({ event, properties, url: window.location.href, at: new Date() });
+    const { href, host, pathname } = window.location;
+    const page = { $current_url: href, $host: host, $pathname: pathname };
+    queue.push({ event, properties, page, at: new Date() });
   }
 }
 
 /**
- * Accept: cookies, session recording, and one visitor across visits.
- * Decline: back to anonymous counting with no cookies, and any recording stops.
+ * Heatmaps (where the mouse moves and clicks on each page) run only with
+ * consent. PostHog would otherwise send them cookieless for everyone, like
+ * pageviews and clicks, so they are switched on and off with the choice.
+ */
+function setHeatmaps(on: boolean): void {
+  client?.set_config({ capture_heatmaps: on });
+}
+
+/**
+ * Accept: cookies, session recording, heatmaps, and one visitor across visits.
+ * Decline: back to anonymous counting of visits and clicks with no cookies, and
+ * any recording and heatmaps stop.
  */
 export function chooseConsent(accept: boolean): void {
   if (!client || consent.status === "unavailable") return;
   if (accept) client.opt_in_capturing();
   else client.opt_out_capturing();
+  setHeatmaps(accept);
   setConsent({ status: accept ? "granted" : "denied", open: false });
 }
 
@@ -108,6 +126,15 @@ function browserAsksNotToTrack(): boolean {
   return signals.some((value) => [true, "true", 1, "1", "yes"].includes(value as never));
 }
 
+function isTeamUrl(url: unknown): boolean {
+  if (typeof url !== "string") return false;
+  try {
+    return new URL(url, window.location.origin).pathname.startsWith("/admin");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Team pages are never measured or recorded. Recording events carry no page
  * address, so the page the browser is on decides for them; the admin layout
@@ -115,27 +142,41 @@ function browserAsksNotToTrack(): boolean {
  * that is sent only after leaving the admin.
  */
 function isTeamPage(event: CaptureResult): boolean {
-  if (window.location.pathname.startsWith("/admin")) return true;
-  const url = event.properties.$current_url;
-  if (typeof url !== "string") return false;
-  try {
-    return new URL(url).pathname.startsWith("/admin");
-  } catch {
-    return false;
-  }
+  return isTeamUrl(window.location.href) || isTeamUrl(event.properties.$current_url);
 }
 
-// The last part stops at a dot, so a full stop after the address is left as it is.
-const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@.]+/g;
+/**
+ * Heatmap data is grouped by page address and sent every few seconds, so one
+ * batch can hold an admin page visited just before. Those pages are taken out;
+ * an event left with none is dropped.
+ */
+function withoutTeamHeatmaps(event: CaptureResult): CaptureResult | null {
+  const data = event.properties.$heatmap_data as Record<string, unknown> | undefined;
+  if (event.event !== "$$heatmap" || !data) return event;
+  const kept = Object.entries(data).filter(([url]) => !isTeamUrl(url));
+  if (kept.length === 0) return null;
+  return { ...event, properties: { ...event.properties, $heatmap_data: Object.fromEntries(kept) } };
+}
+
+/**
+ * An email address in text, or in a URL where @ is usually written %40. Each
+ * part stops at characters an address cannot hold, so only the address is
+ * hidden and not the URL around it; the last part also stops at a dot, so a
+ * full stop after the address is left as it is.
+ */
+const EMAIL = /[^\s@/?#&=:;,<>()"']+(?:@|%40)[^\s@/?#&=:;,<>()"'%]+\.[^\s@/?#&=:;,<>()"'%.]+/g;
 const hideEmails = (text: string) => text.replace(EMAIL, (address) => "*".repeat(address.length));
 
-/** A copy with every email address in its strings hidden, through arrays and plain objects (not Dates). */
+/**
+ * A copy with every email address hidden, in strings and object keys (heatmap
+ * data is keyed by page address), through arrays and plain objects (not Dates).
+ */
 function withoutEmails(value: unknown): unknown {
   if (typeof value === "string") return hideEmails(value);
   if (Array.isArray(value)) return value.map(withoutEmails);
   if (value && Object.getPrototypeOf(value) === Object.prototype) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, withoutEmails(item)]),
+      Object.entries(value).map(([key, item]) => [hideEmails(key), withoutEmails(item)]),
     );
   }
   return value;
@@ -149,7 +190,8 @@ function withoutEmails(value: unknown): unknown {
 function beforeSend(event: CaptureResult): CaptureResult | null {
   if (isTeamPage(event)) return null;
   if (event.event === "$snapshot") return event;
-  return withoutEmails(event) as CaptureResult;
+  const kept = withoutTeamHeatmaps(event);
+  return kept && (withoutEmails(kept) as CaptureResult);
 }
 
 async function load(key: string): Promise<void> {
@@ -179,7 +221,8 @@ async function load(key: string): Promise<void> {
       recordHeaders: false,
       recordBody: false,
     },
-    enable_heatmaps: true,
+    // Off until the visitor accepts (setHeatmaps), whatever the project setting says.
+    capture_heatmaps: false,
     disable_surveys: true,
     disable_product_tours: true,
     disable_conversations: true,
@@ -191,9 +234,10 @@ async function load(key: string): Promise<void> {
   });
   client = posthog;
   const status = browserAsksNotToTrack() ? "unavailable" : posthog.get_explicit_consent_status();
+  if (status === "granted") setHeatmaps(true);
   setConsent({ status, open: status === "pending" });
-  for (const { event, properties, url, at } of queue.splice(0)) {
-    posthog.capture(event, { ...properties, $current_url: url }, { timestamp: at });
+  for (const { event, properties, page, at } of queue.splice(0)) {
+    posthog.capture(event, { ...properties, ...page }, { timestamp: at });
   }
 }
 

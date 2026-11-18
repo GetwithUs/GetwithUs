@@ -1,10 +1,14 @@
+import { publicEnv } from "@/config/public-env";
 import type { LegalDocument } from "@/content/types";
+
+/** Where PostHog keeps the data: follows the region the site sends analytics to. */
+const posthogRegion = publicEnv.posthogRegion === "eu" ? "the European Union" : "the United States";
 
 export const privacyPolicy: LegalDocument = {
   title: "Privacy policy",
   description:
     "How GetwithUs collects, uses, stores, and protects the information you share with us through our website and services.",
-  updated: "2026-11-14",
+  updated: "2026-11-19",
   sections: [
     {
       id: "introduction",
@@ -67,11 +71,15 @@ export const privacyPolicy: LegalDocument = {
         },
         {
           type: "p",
-          text: "If you accept cookies in the banner on our website, PostHog also sets a cookie so it can recognise your later visits, records your visits as session recordings (what the page showed, and your scrolling, mouse movements, and clicks), and works out your approximate location (city and country) from your IP address. Anything you type in a form is hidden from recordings, and so is your email address where the site shows it back to you. If you then send us a form, your visits are linked to your enquiry by a random reference number, not your name or email address. Recordings are deleted after 30 days.",
+          text: "If you accept cookies in the banner on our website, PostHog also sets a cookie so it can recognise your later visits, records your visits as session recordings (what the page showed, and your scrolling, mouse movements, and clicks), records where people move the mouse and click on each page (heatmaps), and works out your approximate location (city and country) from your IP address. Anything you type in a form is hidden from recordings, and so is your email address where the site shows it back to you. If you then send us a form, your visits are linked to your enquiry by a random reference number, not your name or email address. Recordings are deleted after 30 days.",
         },
         {
           type: "p",
           text: "Either way, we never send PostHog what you type, such as your name, email, phone number, or message, and PostHog does not keep your IP address.",
+        },
+        {
+          type: "p",
+          text: "When you confirm your email address after sending a form, our server also tells PostHog that an enquiry came in, with the form you used, the choices you picked, and the enquiry's random reference number, so we can count enquiries even when a browser blocks analytics. It sends nothing you typed.",
         },
       ],
     },
@@ -140,7 +148,7 @@ export const privacyPolicy: LegalDocument = {
         },
         {
           type: "p",
-          text: "The providers that process information from this website are Vercel (hosting), Neon (database), Hostinger (email delivery), and PostHog (analytics and session recordings, hosted in the United States). If we turn on team notifications through Slack or WhatsApp, a summary of each new enquiry is sent there as well. If we turn on Cloudflare Turnstile to block spam, Cloudflare checks your browser when you submit a form and receives your IP address, both from your browser and from us when we confirm the check.",
+          text: `The providers that process information from this website are Vercel (hosting), Neon (database), Hostinger (email delivery), and PostHog (analytics and session recordings, hosted in ${posthogRegion}). If we turn on team notifications through Slack or WhatsApp, a summary of each new enquiry is sent there as well. If we turn on Cloudflare Turnstile to block spam, Cloudflare checks your browser when you submit a form and receives your IP address, both from your browser and from us when we confirm the check.`,
         },
         {
           type: "p",

@@ -24,7 +24,9 @@ function withoutCookies(request: NextRequest) {
  */
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  if (pathname.startsWith(`${ANALYTICS_PATH}/`)) return withoutCookies(request);
+  if (pathname === ANALYTICS_PATH || pathname.startsWith(`${ANALYTICS_PATH}/`)) {
+    return withoutCookies(request);
+  }
   if (pathname === "/admin/login") return NextResponse.next();
   if (SESSION_COOKIES.some((name) => request.cookies.has(name))) return NextResponse.next();
   const login = new URL("/admin/login", request.url);

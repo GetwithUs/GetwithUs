@@ -9,7 +9,7 @@ import { chooseConsent, getConsent, getServerConsent, subscribeConsent } from "@
  * Asks once whether PostHog may use cookies and record visits. Shown only after
  * PostHog has loaded and only while the visitor has not chosen (or has reopened
  * it from "Cookie settings"). Until then, and after "Decline", visits are only
- * counted anonymously without cookies. Not a dialog: the page stays usable and
+ * counted anonymously without cookies (pages and clicks). Not a dialog: the page stays usable and
  * focus is left where it is. On phones it sits above the Call and WhatsApp
  * buttons (a 132 px stack, see WhatsAppFab) with a small gap, which it would otherwise cover;
  * wider, they sit side by side.
@@ -27,9 +27,9 @@ export default function CookieBanner() {
         Can we use cookies?
       </h2>
       <p className="type-small text-body">
-        They show us how people use this site, including recordings of visits, so we can improve it.
-        Anything you type in a form is hidden from recordings. If you decline, we only count visits,
-        anonymously and without cookies.{" "}
+        They show us how people use this site, including recordings of visits and where people move
+        the mouse, so we can improve it. Anything you type in a form is hidden from recordings. If
+        you decline, we only count visits and clicks, anonymously and without cookies.{" "}
         <Link
           href="/privacy#cookies-and-tracking"
           className="text-ink underline decoration-line-2 underline-offset-[3px] hover:decoration-ink"

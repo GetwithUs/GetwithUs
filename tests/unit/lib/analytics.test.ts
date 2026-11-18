@@ -12,6 +12,7 @@ const posthog = vi.hoisted(() => ({
   capture: vi.fn(),
   identify: vi.fn(),
   alias: vi.fn(),
+  set_config: vi.fn(),
   get_property: vi.fn((): unknown => undefined),
   opt_in_capturing: vi.fn(),
   opt_out_capturing: vi.fn(),
@@ -23,6 +24,7 @@ type Analytics = typeof AnalyticsModule;
 type Event = { event: string; properties: Record<string, unknown>; timestamp?: Date };
 type InitOptions = {
   cookieless_mode: string;
+  capture_heatmaps: boolean;
   opt_out_capturing_by_default: boolean;
   session_recording: {
     maskAllInputs: boolean;
@@ -32,7 +34,18 @@ type InitOptions = {
   before_send: (event: Event) => Event | null;
 };
 
-const location = { href: "https://getwithus.in/contact", pathname: "/contact" };
+const location = {
+  href: "https://getwithus.in/contact",
+  pathname: "/contact",
+  host: "getwithus.in",
+  origin: "https://getwithus.in",
+};
+
+/** Puts the browser on another page of the site. */
+function goTo(path: string) {
+  location.href = `https://getwithus.in${path}`;
+  location.pathname = new URL(location.href).pathname;
+}
 
 /** A fresh copy of the module (its state is per page load), started in a browser that is already idle. */
 async function startFresh(): Promise<Analytics> {
@@ -46,8 +59,7 @@ async function startFresh(): Promise<Analytics> {
 const initOptions = () => posthog.init.mock.calls[0][1] as InitOptions;
 
 beforeEach(() => {
-  location.href = "https://getwithus.in/contact";
-  location.pathname = "/contact";
+  goTo("/contact");
   vi.stubGlobal("document", { readyState: "complete" });
   vi.stubGlobal("window", { requestIdleCallback: (run: () => void) => run(), location });
   vi.stubGlobal("navigator", {});
@@ -86,12 +98,17 @@ describe("analytics", () => {
     vi.resetModules();
     const analytics = await import("@/lib/analytics");
     analytics.track("form_started", { form: "brief" });
-    location.href = "https://getwithus.in/about";
+    goTo("/about");
     analytics.startAnalytics();
     await vi.waitFor(() =>
       expect(posthog.capture).toHaveBeenCalledWith(
         "form_started",
-        { form: "brief", $current_url: "https://getwithus.in/contact" },
+        {
+          form: "brief",
+          $current_url: "https://getwithus.in/contact",
+          $host: "getwithus.in",
+          $pathname: "/contact",
+        },
         { timestamp: expect.any(Date) },
       ),
     );
@@ -125,6 +142,7 @@ describe("analytics", () => {
 
     analytics.chooseConsent(true);
     expect(posthog.opt_in_capturing).toHaveBeenCalled();
+    expect(posthog.set_config).toHaveBeenLastCalledWith({ capture_heatmaps: true });
     expect(analytics.getConsent()).toEqual({ status: "granted", open: false });
 
     analytics.openConsentSettings();
@@ -132,6 +150,7 @@ describe("analytics", () => {
 
     analytics.chooseConsent(false);
     expect(posthog.opt_out_capturing).toHaveBeenCalled();
+    expect(posthog.set_config).toHaveBeenLastCalledWith({ capture_heatmaps: false });
     expect(analytics.getConsent()).toEqual({ status: "denied", open: false });
     expect(changes).toHaveBeenCalledTimes(3);
   });
@@ -200,7 +219,66 @@ describe("analytics", () => {
     // Recording data has no page address: the page the browser is on decides.
     const snapshot: Event = { event: "$snapshot", properties: { $snapshot_data: [] } };
     expect(before_send(snapshot)).toBe(snapshot);
-    location.pathname = "/admin/leads";
+    goTo("/admin/leads");
     expect(before_send(snapshot)).toBeNull();
+  });
+
+  it("runs heatmaps only for visitors who accepted", async () => {
+    await startFresh();
+    expect(initOptions().capture_heatmaps).toBe(false);
+    expect(posthog.set_config).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    posthog.get_explicit_consent_status.mockImplementation(() => "granted");
+    await startFresh();
+    expect(posthog.set_config).toHaveBeenCalledWith({ capture_heatmaps: true });
+  });
+
+  it("takes admin pages out of heatmap data sent from a public page", async () => {
+    await startFresh();
+    const { before_send } = initOptions();
+    const point = [{ x: 10, y: 20, type: "click" }];
+    const mixed: Event = {
+      event: "$$heatmap",
+      properties: {
+        $current_url: "https://getwithus.in/about",
+        $heatmap_data: {
+          "https://getwithus.in/admin/leads?q=ana": point,
+          "https://getwithus.in/about": point,
+        },
+      },
+    };
+    expect(before_send(mixed)?.properties.$heatmap_data).toEqual({
+      "https://getwithus.in/about": point,
+    });
+
+    const adminOnly: Event = {
+      event: "$$heatmap",
+      properties: {
+        $current_url: "https://getwithus.in/about",
+        $heatmap_data: { "https://getwithus.in/admin/leads": point },
+      },
+    };
+    expect(before_send(adminOnly)).toBeNull();
+  });
+
+  it("hides email addresses in URLs (%40) and in keys, and leaves the rest of the URL", async () => {
+    await startFresh();
+    const { before_send } = initOptions();
+    const event: Event = {
+      event: "$$heatmap",
+      properties: {
+        $current_url: "https://getwithus.in/start?email=ana%40example.com&utm_source=mail",
+        $heatmap_data: { "https://getwithus.in/start?email=ana@example.com": [] },
+      },
+    };
+    const sent = before_send(event);
+    expect(JSON.stringify(sent)).not.toMatch(/ana(@|%40)example/);
+    expect(sent?.properties.$current_url).toBe(
+      "https://getwithus.in/start?email=*****************&utm_source=mail",
+    );
+    expect(Object.keys(sent?.properties.$heatmap_data as object)).toEqual([
+      "https://getwithus.in/start?email=***************",
+    ]);
   });
 });

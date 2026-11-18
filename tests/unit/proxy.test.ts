@@ -22,6 +22,12 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("treats the bare analytics path as analytics, not as an admin page", () => {
+    const response = proxy(new NextRequest(`https://getwithus.in${ANALYTICS_PATH}`));
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("runs for the analytics path, whose matcher has to be written out", () => {
     expect(config.matcher).toContain(`${ANALYTICS_PATH}/:path*`);
   });
