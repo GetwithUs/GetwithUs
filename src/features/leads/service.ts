@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { confirmedHeadline } from "@/content/forms";
+import { verifiedLeadFacts } from "@/features/leads/analytics";
 import { issueFormToken, verifyFormToken, verifyTurnstile } from "@/features/leads/bot-checks";
 import {
   countLeadsByStatus,
@@ -22,6 +23,7 @@ import { newCode, resendAvailableAt, sendCodeEmail } from "@/features/verificati
 import { logger, maskEmail } from "@/lib/logger";
 import { notFound } from "@/lib/errors";
 import { err, ok, type Result } from "@/lib/result";
+import { captureServerEvent } from "@/server/analytics";
 import { sendEmail } from "@/server/email/client";
 import { renderEmail } from "@/server/email/render";
 import LeadConfirmed from "@/server/email/templates/LeadConfirmed";
@@ -174,12 +176,24 @@ async function sendLeadConfirmation(lead: Lead, requestId: string): Promise<void
 
 /**
  * Work that follows a newly verified lead, run after the response is sent: the
- * client's confirmation email (not for API leads) and the team notifications.
+ * client's confirmation email (not for API leads), the team notifications, and
+ * the analytics event. Each runs on its own, so one that throws never stops the
+ * others (the team still hears about the lead if the confirmation email fails).
  * Failures are logged and never reach the client.
  */
 export async function handleLeadVerified(lead: Lead, requestId: string): Promise<void> {
-  if (lead.source !== "api") await sendLeadConfirmation(lead, requestId);
-  await notifyLeadVerified(lead, { requestId });
+  const steps: (() => Promise<unknown>)[] = [
+    () => notifyLeadVerified(lead, { requestId }),
+    () => captureServerEvent("lead_verified", lead.id, verifiedLeadFacts(lead)),
+  ];
+  if (lead.source !== "api") steps.unshift(() => sendLeadConfirmation(lead, requestId));
+  // async turns a step that throws straight away into a rejection, like one that fails later.
+  const results = await Promise.allSettled(steps.map(async (step) => step()));
+  for (const result of results) {
+    if (result.status === "rejected") {
+      logger.error("Lead follow-up failed", { requestId, leadId: lead.id, error: result.reason });
+    }
+  }
 }
 
 /** Leads per page in the admin table. */

@@ -67,7 +67,8 @@ export const workPage = {
   path: "/work",
   updated: "2026-11-06",
   title: "Selected work",
-  description: "Software projects built by GetwithUs. Case studies published with client permission. Ask us for a walkthrough of recent work.",
+  description:
+    "Software projects built by GetwithUs. Case studies published with client permission. Ask us for a walkthrough of recent work.",
   lead: "Work we have permission to show. Ask us for a walkthrough of the rest.",
   emptyLead:
     "Case studies appear here once clients agree to them being shown. Ask us for a walkthrough of recent work.",
