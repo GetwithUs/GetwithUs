@@ -21,7 +21,12 @@ const posthog = vi.hoisted(() => ({
 vi.mock("posthog-js", () => ({ default: posthog }));
 
 type Analytics = typeof AnalyticsModule;
-type Event = { event: string; properties: Record<string, unknown>; timestamp?: Date };
+type Event = {
+  event: string;
+  properties: Record<string, unknown>;
+  $set_once?: Record<string, unknown>;
+  timestamp?: Date;
+};
 type InitOptions = {
   cookieless_mode: string;
   capture_heatmaps: boolean;
@@ -260,6 +265,73 @@ describe("analytics", () => {
       },
     };
     expect(before_send(adminOnly)).toBeNull();
+  });
+
+  it("removes an admin page noted as the page before a public one", async () => {
+    await startFresh();
+    const { before_send } = initOptions();
+    const fromAdmin: Event = {
+      event: "$pageview",
+      properties: {
+        $current_url: "https://getwithus.in/about",
+        $pathname: "/about",
+        $prev_pageview_pathname: "/admin/leads/11111111-1111-4111-8111-111111111111",
+        $prev_pageview_id: "pv-admin",
+        $prev_pageview_duration: 42,
+        $prev_pageview_max_scroll: 900,
+      },
+    };
+    expect(before_send(fromAdmin)?.properties).toEqual({
+      $current_url: "https://getwithus.in/about",
+      $pathname: "/about",
+    });
+
+    const fromPublic: Event = {
+      event: "$pageview",
+      properties: {
+        $current_url: "https://getwithus.in/about",
+        $prev_pageview_pathname: "/contact",
+      },
+    };
+    expect(before_send(fromPublic)).toEqual(fromPublic);
+  });
+
+  it("removes a session that began on an admin page, also from person properties", async () => {
+    await startFresh();
+    const { before_send } = initOptions();
+    const event: Event = {
+      event: "contact_clicked",
+      properties: {
+        $current_url: "https://getwithus.in/contact",
+        channel: "email",
+        $session_entry_url: "https://getwithus.in/admin/leads?q=ana",
+        $session_entry_pathname: "/admin/leads",
+        $session_entry_referrer: "$direct",
+        $referrer: "https://getwithus.in/admin/leads/11111111-1111-4111-8111-111111111111",
+      },
+      $set_once: { $pathname: "/admin/leads", $initial_pathname: "/about" },
+    };
+    const sent = before_send(event);
+    expect(sent?.properties).toEqual({
+      $current_url: "https://getwithus.in/contact",
+      channel: "email",
+    });
+    expect(sent?.$set_once).toEqual({ $initial_pathname: "/about" });
+    expect(JSON.stringify(sent)).not.toContain("/admin");
+  });
+
+  it("only reads addresses as admin pages, not words or look-alike paths", async () => {
+    await startFresh();
+    const { before_send } = initOptions();
+    const event: Event = {
+      event: "$autocapture",
+      properties: {
+        $current_url: "https://getwithus.in/about",
+        $el_text: "admin",
+        $prev_pageview_pathname: "/administrator",
+      },
+    };
+    expect(before_send(event)).toEqual(event);
   });
 
   it("hides email addresses in URLs (%40) and in keys, and leaves the rest of the URL", async () => {

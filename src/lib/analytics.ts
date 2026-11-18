@@ -126,10 +126,15 @@ function browserAsksNotToTrack(): boolean {
   return signals.some((value) => [true, "true", 1, "1", "yes"].includes(value as never));
 }
 
+/**
+ * A page address (a full URL or a path) in the team's admin. Only strings that
+ * look like an address are read as one, so a word such as "admin" in other
+ * text never matches, and neither does a path like /administrator.
+ */
 function isTeamUrl(url: unknown): boolean {
-  if (typeof url !== "string") return false;
+  if (typeof url !== "string" || !/^(https?:\/\/|\/)/.test(url)) return false;
   try {
-    return new URL(url, window.location.origin).pathname.startsWith("/admin");
+    return /^\/admin(\/|$)/.test(new URL(url, window.location.origin).pathname);
   } catch {
     return false;
   }
@@ -158,6 +163,30 @@ function withoutTeamHeatmaps(event: CaptureResult): CaptureResult | null {
   return { ...event, properties: { ...event.properties, $heatmap_data: Object.fromEntries(kept) } };
 }
 
+// Properties PostHog fills in from an earlier page: the page before this one, and where the
+// session began. When one of them is an admin page, the rest of the group describes it too.
+const EARLIER_PAGE_GROUPS = ["$prev_pageview_", "$session_entry_"];
+
+type PropertyBag = Record<string, unknown>;
+
+/**
+ * PostHog notes each page before beforeSend runs, so an admin page whose own
+ * events are dropped can still turn up in a later public event: as the page
+ * before ($prev_pageview_*), as where a new session began after a break there
+ * ($session_entry_*), as the referrer, or in person properties ($set_once).
+ * Every property holding an admin address is removed, with its group.
+ */
+function withoutTeamPages<T extends PropertyBag | undefined>(props: T): T {
+  if (!props) return props;
+  const team = Object.keys(props).filter((key) => isTeamUrl(props[key]));
+  if (team.length === 0) return props;
+  const groups = EARLIER_PAGE_GROUPS.filter((group) => team.some((key) => key.startsWith(group)));
+  const kept = Object.entries(props).filter(
+    ([key]) => !team.includes(key) && !groups.some((group) => key.startsWith(group)),
+  );
+  return Object.fromEntries(kept) as T;
+}
+
 /**
  * An email address in text, or in a URL where @ is usually written %40. Each
  * part stops at characters an address cannot hold, so only the address is
@@ -184,14 +213,19 @@ function withoutEmails(value: unknown): unknown {
 
 /**
  * The last check before anything leaves the browser: nothing from team pages,
- * and no email address in any event, wherever a click or a URL picked one up.
- * Recordings are masked at the source instead (session_recording below).
+ * no trace of one in a public page's event, and no email address in any event,
+ * wherever a click or a URL picked one up. Recordings are masked at the source
+ * instead (session_recording below).
  */
 function beforeSend(event: CaptureResult): CaptureResult | null {
   if (isTeamPage(event)) return null;
   if (event.event === "$snapshot") return event;
   const kept = withoutTeamHeatmaps(event);
-  return kept && (withoutEmails(kept) as CaptureResult);
+  if (!kept) return null;
+  const clean: CaptureResult = { ...kept, properties: withoutTeamPages(kept.properties) };
+  if (kept.$set) clean.$set = withoutTeamPages(kept.$set);
+  if (kept.$set_once) clean.$set_once = withoutTeamPages(kept.$set_once);
+  return withoutEmails(clean) as CaptureResult;
 }
 
 async function load(key: string): Promise<void> {
