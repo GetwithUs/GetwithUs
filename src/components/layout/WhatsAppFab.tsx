@@ -1,33 +1,35 @@
-"use client";
-
 import { MessageCircle, Phone } from "lucide-react";
+import TrackedLink from "@/components/layout/TrackedLink";
 import Icon from "@/components/ui/Icon";
 import { known, site } from "@/config/site";
 import { cn } from "@/lib/cn";
-import { trackClickPhone, trackClickWhatsApp } from "@/lib/analytics";
 
+// Both colours carry white text at 4.5:1 or more: call blue 5.9:1, WhatsApp green 5:1.
 const BTN =
   "flex h-14 items-center gap-2.5 rounded-full pr-5 pl-4 font-bold text-white shadow-lift max-[600px]:w-14 max-[600px]:justify-center max-[600px]:p-0";
+const CALL = "bg-[#0369a1]";
+const WHATSAPP = "bg-[#15803d]";
 
+/**
+ * The floating Call and WhatsApp buttons, bottom right above the safe area.
+ * Shown only once the owner's phone number is known; icon-only below 600 px.
+ * The stack is 132 px tall (two 56 px buttons, 12 px apart, 20 px up), which the
+ * cookie banner on phones sits above. `preview` draws the same buttons in
+ * place, not linked, for the design kit.
+ */
 export default function WhatsAppFab({ preview = false }: { preview?: boolean }) {
   const phone = known(site.contact.phone);
-  const digits = phone?.replace(/\D/g, "");
   if (!phone && !preview) return null;
-
-  const waHref = `https://wa.me/${digits ?? ""}?text=${encodeURIComponent(site.whatsAppMessage)}`;
-  const telHref = `tel:${phone ?? ""}`;
-
-  const positionClass =
-    "fixed right-5 bottom-[calc(20px+env(safe-area-inset-bottom,0px))] z-50 flex flex-col items-end gap-3";
+  const digits = phone?.replace(/\D/g, "") ?? "";
 
   if (preview) {
     return (
       <div className="relative flex flex-col items-end gap-3">
-        <span className={cn(BTN, "bg-[#0ea5e9] w-fit")}>
+        <span className={cn(BTN, CALL, "w-fit")}>
           <Icon icon={Phone} size={24} />
           <span className="max-[600px]:sr-only">Call us</span>
         </span>
-        <span className={cn(BTN, "bg-[#15803d] w-fit")}>
+        <span className={cn(BTN, WHATSAPP, "w-fit")}>
           <Icon icon={MessageCircle} size={24} />
           <span className="max-[600px]:sr-only">Chat with us</span>
         </span>
@@ -36,30 +38,27 @@ export default function WhatsAppFab({ preview = false }: { preview?: boolean }) 
   }
 
   return (
-    <div className={positionClass}>
-      {/* Phone */}
-      <a
-        href={telHref}
+    <div className="fixed right-5 bottom-[calc(20px+env(safe-area-inset-bottom,0px))] z-50 flex flex-col items-end gap-3">
+      <TrackedLink
+        kind="phone"
+        href={`tel:${phone}`}
         aria-label="Call us"
-        className={cn(BTN, "bg-[#0ea5e9]")}
-        onClick={() => trackClickPhone()}
+        className={cn(BTN, CALL)}
       >
         <Icon icon={Phone} size={24} />
         <span className="max-[600px]:sr-only">Call us</span>
-      </a>
-
-      {/* WhatsApp */}
-      <a
-        href={waHref}
+      </TrackedLink>
+      <TrackedLink
+        kind="whatsapp"
+        href={`https://wa.me/${digits}?text=${encodeURIComponent(site.whatsAppMessage)}`}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with us on WhatsApp"
-        className={cn(BTN, "bg-[#15803d]")}
-        onClick={() => trackClickWhatsApp()}
+        className={cn(BTN, WHATSAPP)}
       >
         <Icon icon={MessageCircle} size={24} />
         <span className="max-[600px]:sr-only">Chat with us</span>
-      </a>
+      </TrackedLink>
     </div>
   );
 }

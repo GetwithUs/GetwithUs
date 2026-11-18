@@ -41,7 +41,7 @@ import { buildPalette, type Palette, type PaletteKey } from "@/components/three/
 // ---------------------------------------------------------------------------
 
 /** One mesh within a node  - equivalent to one `rr(...)` call in the prototypes. */
-export type MeshDef = {
+type MeshDef = {
   w: number; h: number; r: number; d: number;
   x: number; y: number; z: number;
   color: PaletteKey;
@@ -62,7 +62,7 @@ export type NodeDef = {
 };
 
 /** Curve: start point, start tangent, end point, end tangent  - all at z = -0.3. */
-export type CurveDef = {
+type CurveDef = {
   ax: number; ay: number;
   tax: number; tay: number;
   bx: number; by: number;
@@ -70,13 +70,13 @@ export type CurveDef = {
 };
 
 /** Pulse window: [startSeconds, durationSeconds] */
-export type PulseWindow = [number, number];
+type PulseWindow = [number, number];
 
 /**
  * Optional per-frame extra animations (glow, wave bars, etc.).
  * The engine calls each with the current time t and accumulated now.
  */
-export type ExtraDef = {
+type ExtraDef = {
   type: "glow";
   triggerTime: number;
   /** Index into the extras mesh list that holds the glow target. */
