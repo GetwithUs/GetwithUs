@@ -30,7 +30,7 @@ Exact versions and the reasons for each pin are in [docs/decisions/0001-versions
 ## Setup
 
 ```sh
-git clone https://github.com/PRANAV0494/getwithus.git && cd getwithus
+git clone https://github.com/GetwithUs/website.git && cd website
 pnpm install
 cp .env.example .env.local        # then edit: secrets, ADMIN_EMAILS, DATABASE_URL
 docker compose up -d              # or point DATABASE_URL at any Postgres 16

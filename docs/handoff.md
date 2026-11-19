@@ -2,7 +2,7 @@
 
 Status on 2026-11-01: every section of the specification is built, in the order of section 26.1, one commit per phase, and the live site now uses the Modern Engineering design chosen in the design lab. `pnpm check` (typecheck, lint with zero warnings, knip, 161 unit tests, guard) and `pnpm build` pass. The end-to-end suite (19 tests, including axe on five pages) passes. The site has not been deployed; everything below was measured on a local production build.
 
-Repository: https://github.com/PRANAV0494/getwithus (public, default branch `main`). The first CI run on GitHub, on 2026-10-31, passed both jobs: checks and build, then all 16 end-to-end tests on Linux against a Postgres service container.
+Repository: https://github.com/GetwithUs/website (public, default branch `main`; first `PRANAV0494/getwithus`, then `getwithus123/GetwithUs`, moved to the GetwithUs organization on 2026-11-19). The first CI run on GitHub, on 2026-10-31, passed both jobs: checks and build, then all 16 end-to-end tests on Linux against a Postgres service container.
 
 Launch is blocked only on owner facts (the placeholders below), real credentials, and the checks in [launch-checklist.md](launch-checklist.md) that need the production URL.
 
