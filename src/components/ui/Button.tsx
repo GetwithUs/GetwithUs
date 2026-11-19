@@ -44,6 +44,19 @@ const sizes: Record<Size, string> = {
   lg: "h-[52px] px-[26px] text-[1.03rem]",
 };
 
+/** The button's look, for a link that must render its own element (such as TrackedLink). */
+export function buttonClasses({
+  variant = "primary",
+  size = "md",
+  className,
+}: {
+  variant?: Variant;
+  size?: Size;
+  className?: string;
+} = {}): string {
+  return cn(base, variants[variant], sizes[size], className);
+}
+
 function isInternal(href: string): boolean {
   return href.startsWith("/") && !href.startsWith("//");
 }
@@ -54,8 +67,8 @@ function isInternal(href: string): boolean {
  * itself never moves toward the pointer.
  */
 export default function Button(props: ButtonProps) {
-  const { variant = "primary", size = "md", loading = false, className, children } = props;
-  const classes = cn(base, variants[variant], sizes[size], className);
+  const { variant, size, loading = false, className, children } = props;
+  const classes = buttonClasses({ variant, size, className });
 
   const label = loading ? (
     <>

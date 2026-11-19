@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import TrackedLink from "@/components/layout/TrackedLink";
 import OnScreen from "@/components/motion/OnScreen";
-import Button from "@/components/ui/Button";
+import Button, { buttonClasses } from "@/components/ui/Button";
 import Container from "@/components/ui/Container";
 import { closingCta } from "@/content/pages";
 import { cn } from "@/lib/cn";
@@ -24,7 +25,8 @@ function Orb({ className }: { className?: string }) {
  * dark rounded band with slowly turning rings and a breathing glow. The home
  * page passes the terminal, which takes the right column; elsewhere the rings
  * do. An optional founder note appears under the main copy when supplied.
- * An optional contactEmail renders as a mailto link beside the primary button.
+ * Beside the primary button is an email link: contactEmail when supplied,
+ * otherwise "Email us" once the site's address is known.
  */
 export default function ClosingCta({
   terminal,
@@ -39,6 +41,10 @@ export default function ClosingCta({
   contactEmail?: string;
   className?: string;
 }) {
+  // Tracked like every other email link, so clicks count as contact_clicked.
+  const email = contactEmail
+    ? { label: contactEmail, href: `mailto:${contactEmail}` }
+    : closingCta.email;
   return (
     <section aria-labelledby="closing-cta-title" className={cn("pb-24 md:pb-[110px]", className)}>
       <Container>
@@ -65,7 +71,7 @@ export default function ClosingCta({
               </h2>
               <p className="mt-[18px] max-w-[30em] text-lg text-cta-body">{closingCta.text}</p>
               {founderNote ? (
-                <p className="mt-4 max-w-[30em] border-t border-white/10 pt-4 text-base italic text-cta-body">
+                <p className="mt-4 max-w-[30em] border-t border-white/10 pt-4 text-base text-cta-body italic">
                   {founderNote}
                 </p>
               ) : null}
@@ -73,14 +79,14 @@ export default function ClosingCta({
                 <Button href={closingCta.primary.href} size="lg">
                   {closingCta.primary.label}
                 </Button>
-                {contactEmail ? (
-                  <Button href={`mailto:${contactEmail}`} variant="inverse" size="lg">
-                    {contactEmail}
-                  </Button>
-                ) : closingCta.secondary ? (
-                  <Button href={closingCta.secondary.href} variant="inverse" size="lg">
-                    {closingCta.secondary.label}
-                  </Button>
+                {email ? (
+                  <TrackedLink
+                    kind="email"
+                    href={email.href}
+                    className={buttonClasses({ variant: "inverse", size: "lg" })}
+                  >
+                    {email.label}
+                  </TrackedLink>
                 ) : null}
               </div>
             </div>

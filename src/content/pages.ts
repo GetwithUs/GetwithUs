@@ -34,8 +34,8 @@ export const closingCta = {
     ? `Answer a few questions about your project and we reply within ${RESPONSE_TIME} with next steps and, where possible, a price range.`
     : "Answer a few questions about your project and we reply with next steps and, where possible, a price range.",
   primary: { label: "Start a project", href: "/start" } satisfies Action,
-  /** Left out until the owner's email address is known. */
-  secondary: contactEmail
+  /** "Email us" beside the primary button; left out until the owner's email address is known. */
+  email: contactEmail
     ? ({ label: "Email us", href: `mailto:${contactEmail}` } satisfies Action)
     : undefined,
 } as const;
