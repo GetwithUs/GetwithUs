@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { ANALYTICS_PATH, posthogHosts } from "./src/config/analytics";
+import { DEFAULT_DEMOS_ORIGIN, DEMOS_PATH } from "./src/config/demos";
 import { env } from "./src/config/env";
 import { flags } from "./src/config/flags";
 import { siteContent } from "./src/content/site";
@@ -7,6 +8,8 @@ import { siteContent } from "./src/content/site";
 const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 /** The canonical production address (no www). */
 const CANONICAL = new URL(siteContent.url);
+/** The demos app (see src/config/demos.ts, including the warning about this address). */
+const DEMOS_ORIGIN = env.DEMOS_ORIGIN ?? DEFAULT_DEMOS_ORIGIN;
 
 /**
  * One static Content-Security-Policy for every route. A per-request nonce would
@@ -103,14 +106,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Analytics goes through this site to PostHog, so ad blockers that block PostHog's
-  // domains do not drop it. Vercel passes the visitor's IP on (x-forwarded-for), which
-  // PostHog needs for its cookieless visitor count; src/proxy.ts removes this site's
-  // cookies first, so no session cookie reaches PostHog. Only while analytics is on.
+  // Two kinds of rewrites, and src/proxy.ts removes this site's cookies from both, so no
+  // admin session leaves this site:
+  // - The demo websites (DEMOS_PATH), always: served from the demos app (src/config/demos.ts).
+  //   That app sends the same restrictions as below, minus the Turnstile sources and the
+  //   HTTPS upgrade it does not need, so either copy of a header gives the same result when
+  //   the two responses are merged (docs/decisions/0002-security-headers.md).
+  // - Analytics, only while it is on: through this site to PostHog, so ad blockers that
+  //   block PostHog's domains do not drop it. Vercel passes the visitor's IP on
+  //   (x-forwarded-for), which PostHog needs for its cookieless visitor count.
   async rewrites() {
-    if (!flags.analytics) return [];
+    const demos = [
+      { source: DEMOS_PATH, destination: `${DEMOS_ORIGIN}${DEMOS_PATH}` },
+      { source: `${DEMOS_PATH}/:path+`, destination: `${DEMOS_ORIGIN}${DEMOS_PATH}/:path+` },
+    ];
+    if (!flags.analytics) return demos;
     const hosts = posthogHosts(env.NEXT_PUBLIC_POSTHOG_REGION);
     return [
+      ...demos,
       { source: `${ANALYTICS_PATH}/static/:path*`, destination: `${hosts.assets}/static/:path*` },
       { source: `${ANALYTICS_PATH}/array/:path*`, destination: `${hosts.assets}/array/:path*` },
       { source: `${ANALYTICS_PATH}/:path*`, destination: `${hosts.ingest}/:path*` },
@@ -121,6 +134,13 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       // Belt and braces with the admin metadata: never index the admin area.
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      // The demo businesses are made up. The demos app sends this too; repeating it here
+      // keeps them out of search results even if that app's headers ever change.
+      { source: DEMOS_PATH, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      {
+        source: `${DEMOS_PATH}/:path+`,
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
     ];
   },
 };

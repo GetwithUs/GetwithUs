@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { ANALYTICS_PATH } from "@/config/analytics";
+import { DEMOS_PATH } from "@/config/demos";
 import { config, proxy } from "@/proxy";
 
 describe("proxy", () => {
@@ -30,6 +31,31 @@ describe("proxy", () => {
 
   it("runs for the analytics path, whose matcher has to be written out", () => {
     expect(config.matcher).toContain(`${ANALYTICS_PATH}/:path*`);
+  });
+
+  it("forwards the demo websites without this site's cookies, so no admin session leaves", () => {
+    for (const path of [
+      DEMOS_PATH,
+      `${DEMOS_PATH}/skincare/admin`,
+      `${DEMOS_PATH}/_next/static/x.js`,
+    ]) {
+      const response = proxy(
+        new NextRequest(`https://getwithus.in${path}`, {
+          headers: { cookie: "__Secure-authjs.session-token=secret; other=1" },
+        }),
+      );
+      // Without this list Next.js would forward every original header, cookie included.
+      const override = response.headers.get("x-middleware-override-headers");
+      expect(override, path).not.toBeNull();
+      expect(override?.split(","), path).not.toContain("cookie");
+      expect(response.headers.get("x-middleware-request-cookie"), path).toBeNull();
+      // Never mistaken for the admin area: the demos have their own pretend dashboard.
+      expect(response.headers.get("location"), path).toBeNull();
+    }
+  });
+
+  it("runs for the demos path, whose matcher has to be written out", () => {
+    expect(config.matcher).toContain(`${DEMOS_PATH}/:path*`);
   });
 
   it("sends admin visitors without a session to sign in, and lets signed-in ones through", () => {
