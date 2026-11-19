@@ -109,8 +109,9 @@ const nextConfig: NextConfig = {
   // Two kinds of rewrites, and src/proxy.ts removes this site's cookies from both, so no
   // admin session leaves this site:
   // - The demo websites (DEMOS_PATH), always: served from the demos app (src/config/demos.ts).
-  //   That app sends the same security headers as below, so the result is the same
-  //   whichever copy of a header wins when the two responses are merged.
+  //   That app sends the same restrictions as below, minus the Turnstile sources and the
+  //   HTTPS upgrade it does not need, so either copy of a header gives the same result when
+  //   the two responses are merged (docs/decisions/0002-security-headers.md).
   // - Analytics, only while it is on: through this site to PostHog, so ad blockers that
   //   block PostHog's domains do not drop it. Vercel passes the visitor's IP on
   //   (x-forwarded-for), which PostHog needs for its cookieless visitor count.
