@@ -7,6 +7,12 @@ import { siteContent } from "./src/content/site";
 const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 /** The canonical production address (no www). */
 const CANONICAL = new URL(siteContent.url);
+/**
+ * The demo websites we show clients (repo GetwithUs/demos) are a separate Next.js app on
+ * Vercel with basePath "/demos", served on this domain at /demos (Next.js multi-zones).
+ * They only load this origin's files, so the security headers below suit them as well.
+ */
+const DEMOS_ORIGIN = "https://demos-blond-pi.vercel.app";
 
 /**
  * One static Content-Security-Policy for every route. A per-request nonce would
@@ -108,9 +114,14 @@ const nextConfig: NextConfig = {
   // PostHog needs for its cookieless visitor count; src/proxy.ts removes this site's
   // cookies first, so no session cookie reaches PostHog. Only while analytics is on.
   async rewrites() {
-    if (!flags.analytics) return [];
+    const demos = [
+      { source: "/demos", destination: `${DEMOS_ORIGIN}/demos` },
+      { source: "/demos/:path+", destination: `${DEMOS_ORIGIN}/demos/:path+` },
+    ];
+    if (!flags.analytics) return demos;
     const hosts = posthogHosts(env.NEXT_PUBLIC_POSTHOG_REGION);
     return [
+      ...demos,
       { source: `${ANALYTICS_PATH}/static/:path*`, destination: `${hosts.assets}/static/:path*` },
       { source: `${ANALYTICS_PATH}/array/:path*`, destination: `${hosts.assets}/array/:path*` },
       { source: `${ANALYTICS_PATH}/:path*`, destination: `${hosts.ingest}/:path*` },
@@ -121,6 +132,9 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       // Belt and braces with the admin metadata: never index the admin area.
       { source: "/admin/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      // The demo businesses are made up: keep them out of search results.
+      { source: "/demos", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      { source: "/demos/:path+", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
     ];
   },
 };
