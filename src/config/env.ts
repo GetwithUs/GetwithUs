@@ -45,6 +45,8 @@ export const env = createEnv({
     WHATSAPP_NOTIFY_TO: z.string().optional(),
     WHATSAPP_TEMPLATE_NAME: z.string().optional(),
     TURNSTILE_SECRET_KEY: z.string().optional(),
+    // Where /demos is served from (src/config/demos.ts); unset means the demos production app.
+    DEMOS_ORIGIN: z.url().optional(),
     // Set by Vercel. Preview deployments accept form posts from their own URLs, and
     // VERCEL_ENV tells a preview from production (see src/lib/deployment.ts).
     VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
@@ -81,6 +83,7 @@ export const env = createEnv({
     TEAM_NOTIFY_EMAILS: process.env.TEAM_NOTIFY_EMAILS,
     LEADS_API_KEY: process.env.LEADS_API_KEY,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+    DEMOS_ORIGIN: process.env.DEMOS_ORIGIN,
     WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_NOTIFY_TO: process.env.WHATSAPP_NOTIFY_TO,

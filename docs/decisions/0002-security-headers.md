@@ -1,6 +1,6 @@
 # 0002. Security headers in next.config.ts, with a static CSP
 
-Date: 2026-10-31
+Date: 2026-10-31 (demo websites added 2026-11-20)
 
 ## Context
 
@@ -16,9 +16,12 @@ The bundled Next.js 16.4 guide (`content-security-policy.md`) says a nonce must 
 - `frame-src` is `'none'` unless Turnstile is on. `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`.
 - `img-src 'self' data: blob:` and `worker-src 'self' blob:` cover anything the 3D scene creates at runtime. The scene uses no textures, HDRIs, or remote assets.
 - `upgrade-insecure-requests` is added only when `NEXT_PUBLIC_SITE_URL` is HTTPS, so `next dev` and `next start` on plain-HTTP localhost keep working.
+- The demo websites at `/demos` come from a separate app (repo `GetwithUs/demos`) through rewrites (Next.js multi-zones; `src/config/demos.ts`). That app sends the same headers as this site: the same CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY` and HSTS. Both sets reach the browser on `/demos`, and which copy of a header wins depends on the platform (with `next start`, the demos app's headers replace same-named ones set here), so they must agree. `src/proxy.ts` removes this site's cookies from `/demos` requests before they are forwarded, as it does for analytics.
 
 ## Consequences
 
 - Marketing pages stay static and cacheable at the edge.
 - `'unsafe-inline'` for scripts weakens XSS protection compared with a nonce. The site renders no user-generated HTML, React escapes all output, and the only `dangerouslySetInnerHTML` is JSON-LD built from typed objects with `<` escaped, which keeps the practical risk low.
+- The demos run as this origin, which we accept to keep them at getwithus.in/demos instead of a subdomain. Their scripts could call this site's API and admin routes with a visitor's session attached (the cookie is HttpOnly, so it can be used but not read) and read this origin's sessionStorage in the same tab, including the brief draft. This is contained by giving the demos repo the same controls as this one (a protected `main`: pull requests with passing checks, no force-push), no third-party scripts and a self-only CSP. Revisit, and move them to `demos.getwithus.in`, if the demos ever load third-party code or are built outside the team.
+- The rewrite target is Vercel's automatic address for the demos project, not a domain we own. Deleting or renaming that project, or removing the address from it, while the rewrites exist would let someone else claim it and serve pages at `/demos`. `src/config/demos.ts` carries this warning; remove the rewrites first.
 - When Next.js supports hashes or SRI for the static shell without breaking inline scripts, revisit this decision. The experimental `sri` option exists but cannot cover dynamically generated scripts.

@@ -1,19 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ANALYTICS_PATH } from "@/config/analytics";
+import { DEMOS_PATH } from "@/config/demos";
 
 // Auth.js session cookie names: plain on http://localhost, __Secure- prefixed over HTTPS.
 const SESSION_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 
 /**
- * Analytics requests go on to PostHog (the rewrites in next.config.ts) without
- * this site's cookies: the browser attaches every cookie for the site, including
- * a team member's admin session, and PostHog needs none of them. The visitor's
- * IP (x-forwarded-for) still goes, for PostHog's cookieless count.
+ * Requests this site forwards elsewhere (the rewrites in next.config.ts: analytics to
+ * PostHog, the demo websites to the demos app) go without this site's cookies: the
+ * browser attaches every cookie for the site, including a team member's admin session,
+ * and neither needs any of them. The visitor's IP (x-forwarded-for) still goes, for
+ * PostHog's cookieless count.
  */
 function withoutCookies(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.delete("cookie");
   return NextResponse.next({ request: { headers } });
+}
+
+/** The path itself or anything below it ("/demos", "/demos/x", not "/demosx"). */
+function isUnder(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(`${base}/`);
 }
 
 /**
@@ -24,7 +31,7 @@ function withoutCookies(request: NextRequest) {
  */
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  if (pathname === ANALYTICS_PATH || pathname.startsWith(`${ANALYTICS_PATH}/`)) {
+  if (isUnder(pathname, ANALYTICS_PATH) || isUnder(pathname, DEMOS_PATH)) {
     return withoutCookies(request);
   }
   if (pathname === "/admin/login") return NextResponse.next();
@@ -34,5 +41,6 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(login);
 }
 
-// Matchers must be literals; "/gwr" is ANALYTICS_PATH (tests/unit/proxy.test.ts checks they agree).
-export const config = { matcher: ["/admin/:path*", "/gwr/:path*"] };
+// Matchers must be literals; "/gwr" is ANALYTICS_PATH and "/demos" is DEMOS_PATH
+// (tests/unit/proxy.test.ts checks they agree).
+export const config = { matcher: ["/admin/:path*", "/gwr/:path*", "/demos/:path*"] };
