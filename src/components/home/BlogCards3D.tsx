@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import type { Post } from "@/server/db/schema/posts";
+import type { BlogPostView } from "@/features/blog/types";
 
 /**
  * Three blog post cards that tilt on mouse hover using CSS transforms and
@@ -13,18 +13,20 @@ import type { Post } from "@/server/db/schema/posts";
  * On reduced motion the cards are shown flat.
  */
 
-function BlogCard({ post, index }: { post: Post; index: number }) {
+function BlogCard({ post, index }: { post: BlogPostView; index: number }) {
   const cardRef = useRef<HTMLAnchorElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
-  const reduce = useRef(
-    typeof window !== "undefined"
-      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false,
+  // Evaluate reduced-motion once at mount, not during render.
+  const [reduceMotion] = useState(
+    () =>
+      typeof window !== "undefined"
+        ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        : false,
   );
 
   function handleMouseMove(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (reduce.current) return;
+    if (reduceMotion) return;
     const el = cardRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -57,7 +59,7 @@ function BlogCard({ post, index }: { post: Post; index: number }) {
         boxShadow: hovered
           ? "0 20px 60px rgb(10 107 116 / 0.18), 0 4px 16px rgb(15 27 45 / 0.12)"
           : "0 2px 12px rgb(15 27 45 / 0.06)",
-        animation: reduce.current
+        animation: reduceMotion
           ? undefined
           : `blogFloat 4s ease-in-out ${floatDelay}s infinite`,
         willChange: "transform",
@@ -65,9 +67,9 @@ function BlogCard({ post, index }: { post: Post; index: number }) {
     >
       {/* Cover image or gradient */}
       <div className="relative aspect-[16/9] overflow-hidden bg-bg-soft">
-        {post.coverImage ? (
+        {post.coverImageUrl ? (
           <Image
-            src={post.coverImage}
+            src={post.coverImageUrl}
             alt={post.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -99,7 +101,7 @@ function BlogCard({ post, index }: { post: Post; index: number }) {
                 year: "numeric",
               })
             : ""}
-          {post.publishedAt ? " \u00b7 " : ""}
+          {post.publishedAt ? " · " : ""}
           {post.author}
         </p>
         <h3 className="mt-2 font-display text-base font-bold leading-snug text-ink transition-colors duration-150 group-hover:text-accent line-clamp-2">
@@ -119,7 +121,7 @@ function BlogCard({ post, index }: { post: Post; index: number }) {
   );
 }
 
-export default function BlogCards3D({ posts }: { posts: Post[] }) {
+export default function BlogCards3D({ posts }: { posts: BlogPostView[] }) {
   return (
     <>
       <style>{`
