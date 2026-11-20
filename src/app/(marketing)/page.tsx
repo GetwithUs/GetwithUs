@@ -1,5 +1,6 @@
 import CtaSection from "@/components/cta/CtaSection";
 import CodeSection from "@/components/home/CodeSection";
+import BlogSection from "@/components/home/BlogSection";
 import GetwithusOverviewSection from "@/components/home/GetwithusOverviewSection";
 import HomeFaq from "@/components/home/HomeFaq";
 import HomeHero from "@/components/home/HomeHero";
@@ -18,6 +19,7 @@ import { homeFaqs } from "@/content/faqs";
 import { homePage } from "@/content/pages";
 import { faqJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/json-ld";
 import { pageMetadata } from "@/lib/seo";
+import { latestPosts } from "@/features/blog/service";
 
 export const metadata = pageMetadata({
   title: `${site.name}: software your business runs on`,
@@ -27,7 +29,9 @@ export const metadata = pageMetadata({
 });
 
 /** The home page, in the section order of docs/build-final-prompt.md section 5. */
-export default function HomePage() {
+export default async function HomePage() {
+  const recentPosts = await latestPosts();
+
   return (
     <>
       <JsonLd data={[organizationJsonLd(), websiteJsonLd(), faqJsonLd(homeFaqs)]} />
@@ -44,6 +48,7 @@ export default function HomePage() {
       <SelectedWork />
       <HomeFaq />
       <GetwithusOverviewSection />
+      <BlogSection posts={recentPosts} />
       <CtaSection />
     </>
   );

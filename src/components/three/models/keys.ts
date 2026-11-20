@@ -34,10 +34,19 @@ export type ModelKey =
   | "assembling-cube"
   | "shield"
   | "legal-document"
-  | "drifting-cube";
+  | "drifting-cube"
+  | "blog";
 
-/** Props a page can hand its model: the case study screenshot and its frame. */
-export type ModelProps = { image?: string; kind?: "browser" | "phone" };
+/**
+ * Props a page can hand its model: the case study screenshot and its frame,
+ * plus the decorative blog scene's strength and pointer tilt toggle.
+ */
+export type ModelProps = {
+  image?: string;
+  kind?: "browser" | "phone";
+  intensity?: number;
+  interactive?: boolean;
+};
 
 /** Where the camera sits for a model, when the default framing does not fit it. */
 export const MODEL_VIEWS: Partial<
@@ -67,6 +76,7 @@ export const MODEL_VIEWS: Partial<
   "about-studio":         { position: [0, 0, 10.5], fov: 30 },
   "contact-message":      { position: [0, 0, 10.5], fov: 30 },
   "getwithus-overview":   { position: [0, 0, 10.5], fov: 30 },
+  blog:                   { position: [0, 0.2, 7.6], fov: 32 },
 };
 
 /** Models that never move (the legal pages): drawn once, never animated. */

@@ -1,4 +1,5 @@
 import AboutStudio from "@/components/three/models/AboutStudio";
+import BlogScene3DModel from "@/components/three/models/BlogScene3DModel";
 import type { ComponentType } from "react";
 import AboutCube from "@/components/three/models/AboutCube";
 import AppDevPhones from "@/components/three/models/AppDevPhones";
@@ -71,4 +72,5 @@ export const MODELS: Record<ModelKey, ComponentType<ModelProps>> = {
   shield:              Shield,
   "legal-document":    LegalDocument,
   "drifting-cube":     DriftingCube,
+  blog:                BlogScene3DModel,
 };

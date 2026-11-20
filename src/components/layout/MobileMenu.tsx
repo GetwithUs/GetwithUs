@@ -3,12 +3,19 @@
 import { Menu, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { serviceColors, serviceIcons } from "@/components/sections/serviceIcons";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import Logo from "@/components/ui/Logo";
 import type { ServiceSummary } from "@/content/types";
+import { cn } from "@/lib/cn";
+
+/** True for the current page or one of its children. */
+function isCurrent(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 type MobileMenuProps = {
   services: readonly ServiceSummary[];
@@ -24,6 +31,7 @@ const menuButtonClasses =
 
 /** Below 1024 px: a pill menu button that opens a full-height sheet with every link. */
 export default function MobileMenu({ services, links }: MobileMenuProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const [requested, setRequested] = useState(false);
@@ -68,7 +76,15 @@ export default function MobileMenu({ services, links }: MobileMenuProps) {
           <nav aria-label="Mobile" className="mt-8">
             <ul className="border-b border-line">
               <li className="border-t border-line">
-                <Link href="/services" onClick={close} className="block py-3.5 type-h4 text-ink">
+                <Link
+                  href="/services"
+                  onClick={close}
+                  aria-current={isCurrent(pathname, "/services") ? "page" : undefined}
+                  className={cn(
+                    "block py-3.5 type-h4 text-ink",
+                    isCurrent(pathname, "/services") && "text-accent",
+                  )}
+                >
                   Services
                 </Link>
                 <ul className="grid gap-1 pb-3">
@@ -111,7 +127,15 @@ export default function MobileMenu({ services, links }: MobileMenuProps) {
               </li>
               {links.map((link) => (
                 <li key={link.href} className="border-t border-line">
-                  <Link href={link.href} onClick={close} className="block py-3.5 type-h4 text-ink">
+                  <Link
+                    href={link.href}
+                    onClick={close}
+                    aria-current={isCurrent(pathname, link.href) ? "page" : undefined}
+                    className={cn(
+                      "block py-3.5 type-h4 text-ink",
+                      isCurrent(pathname, link.href) && "text-accent",
+                    )}
+                  >
                     {link.label}
                   </Link>
                 </li>
