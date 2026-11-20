@@ -119,6 +119,15 @@ const nextConfig: NextConfig = {
     const demos = [
       { source: DEMOS_PATH, destination: `${DEMOS_ORIGIN}${DEMOS_PATH}` },
       { source: `${DEMOS_PATH}/:path+`, destination: `${DEMOS_ORIGIN}${DEMOS_PATH}/:path+` },
+      // A prefetch of the demos index. With Partial Prerendering, Vercel turns a segment
+      // prefetch of /demos into /demos.segments/<segment>.segment.rsc, which neither rule
+      // above matches; send it to the index, whose app answers the header still attached.
+      // (Deeper pages arrive as /demos/<page>.segments/..., which the demos app maps back.)
+      {
+        source: `${DEMOS_PATH}.segments/:segment*`,
+        has: [{ type: "header" as const, key: "rsc", value: "1" }],
+        destination: `${DEMOS_ORIGIN}${DEMOS_PATH}`,
+      },
     ];
     if (!flags.analytics) return demos;
     const hosts = posthogHosts(env.NEXT_PUBLIC_POSTHOG_REGION);
