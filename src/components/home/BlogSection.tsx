@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import PostCard from "@/components/blog/PostCard";
+import BlogCards3D from "@/components/home/BlogCards3D";
 import BlogScene3D from "@/components/three/BlogScene3D";
 import Button from "@/components/ui/Button";
 import Container from "@/components/ui/Container";
@@ -33,11 +33,7 @@ export default function BlogSection({ posts }: { posts: BlogPostView[] }) {
           <BlogScene3D size="small" />
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
+        <BlogCards3D posts={posts} />
 
         <div className="mt-8 sm:hidden">
           <Link href="/blog" className="text-sm font-semibold text-accent hover:text-ink">
