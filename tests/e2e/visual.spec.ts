@@ -1,5 +1,11 @@
 import { expect, test } from "./support/test";
 
+// Every test here only loads a page and checks it (the shared fixture clears the rate-limit
+// counters first, as for every spec; nothing else is written), and none depends on another, so
+// CI may spread them across its machines. Each machine has its own database and still runs one
+// test at a time (see playwright.config.ts and .github/workflows/ci.yml).
+test.describe.configure({ mode: "parallel" });
+
 /*
  * The home hero at phone and desktop widths, in both themes. Captured under
  * reduced motion, which the design defines as a complete still frame (the
