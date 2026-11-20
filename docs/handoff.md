@@ -281,6 +281,6 @@ Explicitly out of scope for this pass:
 Worth considering after launch:
 
 - Field performance data: PostHog already collects Web Vitals from real visits (`$web_vitals` events); add INP and LCP charts to the "GetwithUs daily" dashboard to watch them on real devices.
-- Linux visual baselines committed from the `playwright` artifact of the first CI run after the redesign.
+- Linux visual baselines committed from the first CI run after the redesign: the `playwright-1` to `playwright-4` artifacts, since the suite now runs split across machines and the visual shots can be spread over several (see ADR 0010).
 - A headless CMS behind the existing content types, if non-developers need to edit copy often.
 - More languages, if the WhatsApp bot and calling agent pages target non-English markets.
