@@ -37,8 +37,11 @@ jobs:
       - run: pnpm check
       - run: pnpm build
 
-  # Whether the browser tests need to run: not when only docs changed (Markdown anywhere,
-  # or anything under docs/). Plain git, no third-party action.
+  # Whether the browser tests need to run: not on a pull request that only changes docs
+  # (Markdown anywhere, or anything under docs/). Pushes to main always run them: runs on
+  # main cancel each other, so a docs-only merge can cancel the run for a code merge just
+  # before it, and comparing against that one commit would then skip code nobody tested on
+  # main. Plain git, no third-party action.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -49,13 +52,15 @@ jobs:
           fetch-depth: 0
       - id: diff
         env:
-          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ] || [ -z "$BASE" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+          # --no-renames lists both paths of a moved file, so moving code into docs/ still
+          # counts as a code change.
+          changed=$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")
           echo "$changed"
           if echo "$changed" | grep -qvE '^docs/|\.md$'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
@@ -64,14 +69,14 @@ jobs:
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # The browser tests, split across four machines that run at the same time, alongside
-  # `check` rather than after it. Each machine builds the app and has its own database,
-  # because the specs share one database and must not run side by side on it. Playwright
-  # keeps each spec file on one machine unless the file opts in to being split (a11y and
-  # visual, which only read pages); with four machines that comes out at about 2 to 2.5
-  # minutes of tests each.
+  # The browser tests, split across machines that run at the same time, alongside `check`
+  # rather than after it. Each machine builds the app and has its own database, because the
+  # specs share one database and must not run side by side on it. Playwright keeps each spec
+  # file on one machine unless the file opts in to being split (a11y and visual, which only
+  # load pages). The machine count is the matrix length below. With four, the split measured
+  # 12 / 11 / 17 / 5 tests (2.7, 2.3, 2.4 and 0.7 minutes of tests), about 4 minutes in all.
   e2e-shard:
-    name: e2e (${{ matrix.shard }}/4)
+    name: e2e (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
@@ -107,7 +112,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       # Visual baselines are per platform. Until Linux baselines are committed, CI
       # writes them on the first run (uploaded below) instead of failing.
-      - run: pnpm test:e2e --shard=${{ matrix.shard }}/4 --update-snapshots=missing
+      - run: pnpm test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }} --update-snapshots=missing
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -119,7 +124,8 @@ jobs:
           retention-days: 14
 
   # The single "e2e" check that main requires (see the repository ruleset): it passes when
-  # every shard passed, or when only docs changed and the shards were skipped.
+  # every shard passed, or when the changes job said exactly "false" (docs only) and the
+  # shards were skipped. Anything else, including a missing answer, fails.
   e2e:
     if: always()
     needs: [changes, e2e-shard]
@@ -134,9 +140,13 @@ jobs:
             echo "Could not tell what changed ($CHANGES)."
             exit 1
           fi
-          if [ "$CODE" != "true" ]; then
+          if [ "$CODE" = "false" ]; then
             echo "Docs only: browser tests skipped."
             exit 0
+          fi
+          if [ "$CODE" != "true" ]; then
+            echo "Could not tell whether the browser tests were needed ('$CODE')."
+            exit 1
           fi
           if [ "$SHARDS" != "success" ]; then
             echo "Browser tests did not pass ($SHARDS)."

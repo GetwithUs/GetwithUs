@@ -18,5 +18,5 @@ Section 22 asks for Playwright tests against `next start` with the console email
 ## Consequences
 
 - A run never sends email, never posts to Slack or WhatsApp, and never touches the development database.
-- The first CI run has no Linux baselines to compare against. Download them from the `playwright` artifact and commit them under `tests/e2e/visual.spec.ts-snapshots/`; from then on CI compares.
+- The first CI run has no Linux baselines to compare against. Download them from the CI run's `playwright-1` to `playwright-4` artifacts (the suite is split across machines, and the visual spec with it, so its baselines can be spread over several) and commit them under `tests/e2e/visual.spec.ts-snapshots/`; from then on CI compares.
 - The suite rebuilds the app with test settings, which overwrites `.next`. Run `pnpm build` again before `pnpm start` for anything but tests.

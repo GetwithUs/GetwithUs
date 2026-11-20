@@ -100,7 +100,7 @@ Every variable is validated at build and at startup by `src/config/env.ts`; the 
 
 - Unit: `pnpm test`. Covers verification codes, schemas, rate limiting, notification dispatch, the HTTP envelope, the scene's progress mapping, content rules, and UI smoke renders.
 - End to end: `pnpm test:e2e`. Needs a Postgres it may wipe. By default it uses `postgres://getwithus:getwithus@localhost:5432/getwithus_test`, a second database on the Docker Postgres from `docker-compose.yml`; set `E2E_DATABASE_URL` to use another server (the database is created if missing, migrated, and emptied on every run). Set `E2E_SKIP_BUILD=1` to reuse a build made by a previous run. Covers home and navigation, both forms through to the code step, the honeypot, admin redirect and status change, axe on five pages, and visual snapshots of the hero.
-- CI (`.github/workflows/ci.yml`), on every push to `main` and every pull request: audit, `pnpm check`, `pnpm build`, then the end-to-end suite against a Postgres service container.
+- CI (`.github/workflows/ci.yml`), on every push to `main` and every pull request: audit, `pnpm check` and `pnpm build`, and at the same time the end-to-end suite, split across four machines that each have their own Postgres service container (reports in the `playwright-1` to `playwright-4` artifacts). A pull request that only changes docs (Markdown, or `docs/`) skips the end-to-end suite; pushes to `main` always run it. The `e2e` check reports the result for all four.
 - Dependabot (`.github/dependabot.yml`) opens update pull requests weekly for npm packages and monthly for GitHub Actions. Do not accept `three` above 0.182 until `@react-three/fiber` stops using `THREE.Clock` ([decisions/0001-versions.md](docs/decisions/0001-versions.md)).
 
 ## Deployment
