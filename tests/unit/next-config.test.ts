@@ -1,19 +1,20 @@
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DEMOS_ORIGIN, DEMOS_PATH } from "@/config/demos";
+import { DEMOS_PATH } from "@/config/demos";
 // next.config.ts sits at the repository root, outside src/, so the @/ alias cannot reach it.
 // eslint-disable-next-line no-restricted-imports
 import nextConfig from "../../next.config";
 
-// The matcher Next.js builds for every custom rewrite (server/lib/router-utils/filesystem.js),
-// with the same options. It ships without type declarations.
-const { getPathMatch } = createRequire(import.meta.url)(
-  "next/dist/shared/lib/router/utils/path-match",
-) as {
-  getPathMatch: (
-    path: string,
-    options: { strict: boolean; removeUnnamedParams: boolean },
-  ) => (pathname: string) => false | Record<string, unknown>;
+// The pattern compiler Next uses for custom routes (lib/build-custom-route.js); it gives the
+// same regex the routes manifest carries, which is what Vercel matches. No type declarations.
+const { buildCustomRoute } = createRequire(import.meta.url)("next/dist/lib/build-custom-route") as {
+  buildCustomRoute: (type: "rewrite", route: Rule) => { regex: string };
+};
+
+type Rule = {
+  source: string;
+  destination: string;
+  has?: { type: string; key?: string; value?: string }[];
 };
 
 async function siteHeaders(): Promise<Record<string, string>> {
@@ -61,34 +62,85 @@ describe("security headers on every route", () => {
   });
 });
 
-describe("demo website rewrites", () => {
-  async function demoRewrites() {
-    const rewrites = await nextConfig.rewrites?.();
-    const list = Array.isArray(rewrites) ? rewrites : (rewrites?.afterFiles ?? []);
-    return list.filter((r) => r.destination.startsWith(DEFAULT_DEMOS_ORIGIN));
-  }
+/** This site's rewrites in order (all are afterFiles rewrites). */
+async function rewrites(): Promise<Rule[]> {
+  const result = await nextConfig.rewrites?.();
+  return Array.isArray(result) ? result : (result?.afterFiles ?? []);
+}
 
-  it("send the index, every page under it, and an index prefetch to the demos app", async () => {
-    const rules = await demoRewrites();
-    const matches = (path: string) =>
-      rules.filter((r) =>
-        getPathMatch(r.source, { strict: true, removeUnnamedParams: true })(path),
-      );
-    for (const path of [
-      DEMOS_PATH,
-      `${DEMOS_PATH}/skincare/shop`,
-      `${DEMOS_PATH}/_next/static/chunks/app.js`,
-      `${DEMOS_PATH}.segments/_tree.segment.rsc`,
-    ]) {
-      expect(matches(path), path).toHaveLength(1);
-    }
-    expect(matches("/demosx")).toHaveLength(0);
+/**
+ * Where Vercel sends a request, modelled on vercel/vercel packages/next/src/server-build.ts
+ * (the isAfterFilesRewrite block). Each afterFiles rewrite's regex gets an optional RSC suffix
+ * group in place of its trailing optional slash (with these suffixes because this site uses
+ * Partial Prerendering and the client segment cache), and whatever that group matched is
+ * appended to the destination. The first rule whose regex and `has` conditions match wins.
+ */
+const RSC_SUFFIX = String.raw`\.rsc|\.prefetch\.rsc|\.segments/.+\.segment\.rsc`;
+
+function onVercel(rules: Rule[], path: string, headers: Record<string, string> = {}) {
+  for (const rule of rules) {
+    const hasOk = (rule.has ?? []).every(
+      (h) =>
+        h.type !== "header" ||
+        (h.key !== undefined &&
+          h.key in headers &&
+          (h.value === undefined || headers[h.key] === h.value)),
+    );
+    if (!hasOk) continue;
+    const regex = buildCustomRoute("rewrite", rule).regex.replace(
+      /\/?\(\?:\/\)\?/,
+      `(?:/)?(?<rscsuff>${RSC_SUFFIX})?`,
+    );
+    const match = new RegExp(regex).exec(path);
+    if (match) return { rule, appended: match.groups?.rscsuff ?? "" };
+  }
+  return undefined;
+}
+
+describe("demo website rewrites", () => {
+  const rsc = { rsc: "1" };
+
+  it("send the index and every page under it to the demos app", async () => {
+    const rules = await rewrites();
+    expect(onVercel(rules, DEMOS_PATH)?.rule.source).toBe(DEMOS_PATH);
+    expect(onVercel(rules, `${DEMOS_PATH}/skincare/shop`)?.rule.source).toBe(
+      `${DEMOS_PATH}/:path+`,
+    );
+    expect(onVercel(rules, `${DEMOS_PATH}/_next/static/chunks/app.js`)?.rule.source).toBe(
+      `${DEMOS_PATH}/:path+`,
+    );
+    expect(onVercel(rules, "/demosx")).toBeUndefined();
+    expect(onVercel(rules, "/demosx.rsc", rsc)).toBeUndefined();
   });
 
-  it("forward an index prefetch only as an RSC request, to the index", async () => {
-    const rule = (await demoRewrites()).find((r) => r.source.includes(".segments"));
-    expect(rule?.has).toEqual([{ type: "header", key: "rsc", value: "1" }]);
-    expect(rule?.destination).toBe(`${DEFAULT_DEMOS_ORIGIN}${DEMOS_PATH}`);
+  it("on Vercel, send index navigations and prefetches to the index itself", async () => {
+    const rules = await rewrites();
+    for (const path of [
+      `${DEMOS_PATH}.rsc`,
+      `${DEMOS_PATH}.prefetch.rsc`,
+      `${DEMOS_PATH}.segments/_tree.segment.rsc`,
+      `${DEMOS_PATH}.segments/children/__PAGE__.segment.rsc`,
+    ]) {
+      const route = onVercel(rules, path, rsc);
+      // Anything appended would land outside the demos app's basePath and 404 there.
+      expect(route?.appended, path).toBe("");
+      expect(route?.rule.destination.endsWith(DEMOS_PATH), path).toBe(true);
+      expect(route?.rule.has, path).toEqual([{ type: "header", key: "rsc", value: "1" }]);
+    }
+  });
+
+  it("on Vercel, keep the suffix for deeper pages, which the demos app handles", async () => {
+    const rules = await rewrites();
+    expect(onVercel(rules, `${DEMOS_PATH}/skincare.rsc`, rsc)).toMatchObject({
+      rule: { source: `${DEMOS_PATH}/:path+` },
+      appended: ".rsc",
+    });
+    expect(
+      onVercel(rules, `${DEMOS_PATH}/skincare/shop.segments/_tree.segment.rsc`, rsc),
+    ).toMatchObject({
+      rule: { source: `${DEMOS_PATH}/:path+` },
+      appended: ".segments/_tree.segment.rsc",
+    });
   });
 
   it("keep the demos out of search results", async () => {

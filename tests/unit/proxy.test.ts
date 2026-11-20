@@ -38,8 +38,9 @@ describe("proxy", () => {
       DEMOS_PATH,
       `${DEMOS_PATH}/skincare/admin`,
       `${DEMOS_PATH}/_next/static/x.js`,
-      // How Vercel can present a prefetch of the demos index (see next.config.ts).
-      `${DEMOS_PATH}.segments/_tree.segment.rsc`,
+      // The demos index as an RSC file path, as the proxy sees it (Next drops the .rsc).
+      `${DEMOS_PATH}.segments/_tree.segment`,
+      `${DEMOS_PATH}.segments`,
     ]) {
       const response = proxy(
         new NextRequest(`https://getwithus.in${path}`, {
@@ -58,7 +59,6 @@ describe("proxy", () => {
 
   it("runs for the demos path, whose matcher has to be written out", () => {
     expect(config.matcher).toContain(`${DEMOS_PATH}/:path*`);
-    expect(config.matcher).toContain(`${DEMOS_PATH}.segments/:path*`);
   });
 
   it("sends admin visitors without a session to sign in, and lets signed-in ones through", () => {
