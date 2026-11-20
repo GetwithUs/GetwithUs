@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BlogSceneStillShapes } from "@/components/three/BlogSceneStill";
 import type { ModelKey } from "@/components/three/models/keys";
 
 /*
@@ -442,6 +443,7 @@ const STILLS: Record<ModelKey, ReactNode> = {
       <circle cx={234} cy={196} r={12} fill="var(--accent)" />
     </>
   ),
+  blog: <BlogSceneStillShapes />,
   "drifting-cube": (
     <>
       <ellipse

@@ -36,7 +36,7 @@ function contentSecurityPolicy(): string {
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     "font-src 'self'",
     `connect-src ${connectSrc.join(" ")}`,
     "worker-src 'self' blob:",
@@ -63,6 +63,14 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
+  },
   // PostHog calls paths that end in "/" (such as /e/), which the automatic redirect that
   // removes trailing slashes would break. redirects() below keeps that redirect for every
   // page, so /about/ still goes to /about; only the analytics path is left alone.

@@ -68,6 +68,11 @@ export function useModelQuality(): "high" | "medium" | "low" {
   return useModelSettings().quality;
 }
 
+/** True under reduced motion or for a model that is intentionally never animated. */
+export function useModelStill(): boolean {
+  return useModelSettings().still;
+}
+
 /**
  * Runs a model's animation each rendered frame with a clamped step (so a pause
  * off screen never makes it jump). Under reduced motion it is called with time

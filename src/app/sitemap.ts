@@ -12,21 +12,30 @@ import {
 } from "@/content/pages";
 import { allServicePages } from "@/content/services";
 import { getPublishedCaseStudies } from "@/features/case-studies/getPublishedCaseStudies";
+import { listPublishedPosts } from "@/features/blog/service";
 import { absoluteUrl } from "@/lib/seo";
 
 /** Every public page with the date its content last changed. /work appears once a study is published. */
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entry = (path: string, updated: string) => ({
     url: absoluteUrl(path),
     lastModified: updated,
   });
   const studies = getPublishedCaseStudies();
+  const posts = await listPublishedPosts(1000).catch(() => []);
+  const blogUpdated = posts[0]
+    ? (posts[0].updatedAt ?? posts[0].publishedAt ?? posts[0].createdAt).toISOString()
+    : "2026-11-20";
 
   return [
     entry(homePage.path, homePage.updated),
     entry(servicesPage.path, servicesPage.updated),
     ...allServicePages.map((page) => entry(page.href, page.updated)),
     entry(processPage.path, processPage.updated),
+    entry("/blog", blogUpdated),
+    ...posts.map((post) =>
+      entry(`/blog/${post.slug}`, (post.updatedAt ?? post.publishedAt ?? post.createdAt).toISOString()),
+    ),
     ...(studies.length
       ? [
           entry(workPage.path, workPage.updated),

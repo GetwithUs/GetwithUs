@@ -1,4 +1,4 @@
-import { Bell, Inbox, LayoutDashboard, type LucideIcon } from "lucide-react";
+import { Bell, Inbox, LayoutDashboard, PenLine, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import AccountMenu from "@/components/admin/AccountMenu";
@@ -9,6 +9,7 @@ import Logo from "@/components/ui/Logo";
 const nav: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Leads", href: "/admin/leads", icon: Inbox },
+  { label: "Blog", href: "/admin/blog", icon: PenLine },
   { label: "Notifications", href: "/admin/notifications", icon: Bell },
 ];
 

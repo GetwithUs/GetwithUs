@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useOnScreen } from "@/components/motion/useOnScreen";
 import { useQuality } from "@/components/three/hooks/useQuality";
 import { STATIC_MODELS, type ModelKey, type ModelProps } from "@/components/three/models/keys";
@@ -28,6 +28,7 @@ export default function WebGLModel({
   still,
   label,
   className,
+  style,
   modelProps,
 }: {
   model: ModelKey;
@@ -37,6 +38,8 @@ export default function WebGLModel({
   /** Describes the model when it carries meaning; otherwise it is decorative. */
   label?: string;
   className?: string;
+  /** Lets a caller choose a different panel aspect ratio without new CSS. */
+  style?: CSSProperties;
 }) {
   const panel = useRef<HTMLDivElement>(null);
   const [intent, setIntent] = useState(false);
@@ -81,6 +84,7 @@ export default function WebGLModel({
     <div
       ref={panel}
       className={cn("model-panel", className)}
+      style={style}
       data-live={live && ready ? "" : undefined}
       {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
     >

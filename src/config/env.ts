@@ -32,6 +32,14 @@ export const env = createEnv({
   },
   server: {
     DATABASE_URL: z.string().min(1),
+    /**
+     * Needed only for the admin cover-image upload/delete API. Optional so the
+     * public site still builds without a Blob store; the route reports a clear
+     * error when an upload is attempted without it.
+     */
+    BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+    /** Optional alternative to Auth.js allowlist sign-in for blog admin deployment notes. */
+    ADMIN_PASSWORD: z.string().min(1).optional(),
     AUTH_SECRET: z.string().min(32),
     ADMIN_EMAILS: emailList,
     VERIFICATION_PEPPER: z.string().min(32),
@@ -75,6 +83,8 @@ export const env = createEnv({
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
+    BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
     AUTH_SECRET: process.env.AUTH_SECRET,
     ADMIN_EMAILS: process.env.ADMIN_EMAILS,
     VERIFICATION_PEPPER: process.env.VERIFICATION_PEPPER,
