@@ -1,5 +1,9 @@
 import { expect, test } from "./support/test";
 
+// Every test here is an independent page check that writes nothing to the database, so CI may
+// spread them across its shards (one test at a time per machine still; see playwright.config.ts).
+test.describe.configure({ mode: "parallel" });
+
 /*
  * The home hero at phone and desktop widths, in both themes. Captured under
  * reduced motion, which the design defines as a complete still frame (the

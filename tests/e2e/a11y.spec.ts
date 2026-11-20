@@ -1,6 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "./support/test";
 
+// Every test here is an independent page check that writes nothing to the database, so CI may
+// spread them across its shards (one test at a time per machine still; see playwright.config.ts).
+test.describe.configure({ mode: "parallel" });
+
 const PAGES = [
   "/",
   "/services",
