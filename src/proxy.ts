@@ -31,7 +31,13 @@ function isUnder(pathname: string, base: string): boolean {
  */
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  if (isUnder(pathname, ANALYTICS_PATH) || isUnder(pathname, DEMOS_PATH)) {
+  if (
+    isUnder(pathname, ANALYTICS_PATH) ||
+    isUnder(pathname, DEMOS_PATH) ||
+    // The demos index as an RSC file path. Next extends the "/demos/:path*" matcher to cover
+    // it, and without this the request would fall through to the admin gate below.
+    isUnder(pathname, `${DEMOS_PATH}.segments`)
+  ) {
     return withoutCookies(request);
   }
   if (pathname === "/admin/login") return NextResponse.next();
@@ -42,5 +48,6 @@ export function proxy(request: NextRequest) {
 }
 
 // Matchers must be literals; "/gwr" is ANALYTICS_PATH and "/demos" is DEMOS_PATH
-// (tests/unit/proxy.test.ts checks they agree).
+// (tests/unit/proxy.test.ts checks they agree). Next adds the RSC file suffixes to each
+// matcher itself, so "/demos/:path*" also runs for /demos.segments/<segment>.segment.rsc.
 export const config = { matcher: ["/admin/:path*", "/gwr/:path*", "/demos/:path*"] };

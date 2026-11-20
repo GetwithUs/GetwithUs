@@ -38,6 +38,9 @@ describe("proxy", () => {
       DEMOS_PATH,
       `${DEMOS_PATH}/skincare/admin`,
       `${DEMOS_PATH}/_next/static/x.js`,
+      // The demos index as an RSC file path, as the proxy sees it (Next drops the .rsc).
+      `${DEMOS_PATH}.segments/_tree.segment`,
+      `${DEMOS_PATH}.segments`,
     ]) {
       const response = proxy(
         new NextRequest(`https://getwithus.in${path}`, {

@@ -117,6 +117,20 @@ const nextConfig: NextConfig = {
   //   (x-forwarded-for), which PostHog needs for its cookieless visitor count.
   async rewrites() {
     const demos = [
+      // Client navigations and prefetches of the demos index. On Vercel every rewrite here
+      // also matches an RSC suffix (.rsc, .prefetch.rsc or .segments/<segment>.segment.rsc)
+      // and appends it to the destination (vercel/vercel, packages/next/src/server-build.ts).
+      // For the index that would forward /demos.rsc or /demos.segments/..., outside the demos
+      // app's basePath, which 404s there. This rule comes first and spells the suffix out, so
+      // nothing is left to append: the request goes to /demos with its headers, and the demos
+      // app serves the right payload. Deeper pages keep their suffix on purpose (the demos app
+      // handles /demos/<page>.segments/..., GetwithUs/demos#2). The suffix itself arrives as
+      // an unused query parameter, which the demos app ignores.
+      {
+        source: `${DEMOS_PATH}:suffix(\\.rsc|\\.prefetch\\.rsc|\\.segments/.+\\.segment\\.rsc)`,
+        has: [{ type: "header" as const, key: "rsc", value: "1" }],
+        destination: `${DEMOS_ORIGIN}${DEMOS_PATH}`,
+      },
       { source: DEMOS_PATH, destination: `${DEMOS_ORIGIN}${DEMOS_PATH}` },
       { source: `${DEMOS_PATH}/:path+`, destination: `${DEMOS_ORIGIN}${DEMOS_PATH}/:path+` },
     ];
