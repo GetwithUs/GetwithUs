@@ -13,7 +13,7 @@ import type { BlogPostView } from "@/features/blog/types";
  * On reduced motion the cards are shown flat.
  */
 
-function BlogCard({ post, index }: { post: BlogPostView; index: number }) {
+function BlogCard({ post }: { post: BlogPostView }) {
   const cardRef = useRef<HTMLAnchorElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
@@ -40,9 +40,6 @@ function BlogCard({ post, index }: { post: BlogPostView; index: number }) {
     setHovered(false);
   }
 
-  // Staggered float animation delay
-  const floatDelay = index * 0.8;
-
   return (
     <Link
       ref={cardRef}
@@ -59,9 +56,6 @@ function BlogCard({ post, index }: { post: BlogPostView; index: number }) {
         boxShadow: hovered
           ? "0 20px 60px rgb(10 107 116 / 0.18), 0 4px 16px rgb(15 27 45 / 0.12)"
           : "0 2px 12px rgb(15 27 45 / 0.06)",
-        animation: reduceMotion
-          ? undefined
-          : `blogFloat 4s ease-in-out ${floatDelay}s infinite`,
         willChange: "transform",
       }}
     >
@@ -123,20 +117,12 @@ function BlogCard({ post, index }: { post: BlogPostView; index: number }) {
 
 export default function BlogCards3D({ posts }: { posts: BlogPostView[] }) {
   return (
-    <>
-      <style>{`
-        @keyframes blogFloat {
-          0%, 100% { transform: perspective(900px) translateY(0px); }
-          50% { transform: perspective(900px) translateY(-8px); }
-        }
-      `}</style>
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="list">
-        {posts.map((post, i) => (
-          <li key={post.id}>
-            <BlogCard post={post} index={i} />
-          </li>
-        ))}
-      </ul>
-    </>
+    <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" role="list">
+      {posts.map((post) => (
+        <li key={post.id}>
+          <BlogCard post={post} />
+        </li>
+      ))}
+    </ul>
   );
 }
