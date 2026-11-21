@@ -11,6 +11,8 @@ import { cn } from "@/lib/cn";
 
 const ModelCanvas = dynamic(() => import("@/components/three/ModelCanvas"), { ssr: false });
 
+/** The first of these anywhere on the page lets the 3D load (docs/build-final-plan.md, decision 6). */
+const INTENT = ["scroll", "wheel", "pointermove", "pointerdown", "keydown", "touchstart"] as const;
 
 /**
  * A page's 3D model in a 4:3 panel. It shows `still` (a static SVG drawn on
@@ -40,12 +42,26 @@ export default function WebGLModel({
   style?: CSSProperties;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  const [intent, setIntent] = useState(false);
   const [near, setNear] = useState(false);
   const [live, setLive] = useState(false);
   const onScreen = useOnScreen(panel, { threshold: 0 });
   const reduce = useReducedMotion();
-  // Load as soon as the panel is near the viewport - no interaction gate.
-  const quality = useQuality(near);
+  const quality = useQuality(intent && near);
+
+  useEffect(() => {
+    function stop() {
+      for (const name of INTENT) window.removeEventListener(name, start);
+    }
+    function start() {
+      stop();
+      setIntent(true);
+    }
+    for (const name of INTENT) window.addEventListener(name, start, { passive: true });
+    // Scrolled before this script ran: that scroll was the first interaction.
+    if (window.scrollY > 0) start();
+    return stop;
+  }, []);
 
   useEffect(() => {
     const element = panel.current;
@@ -62,7 +78,7 @@ export default function WebGLModel({
     return () => observer.disconnect();
   }, []);
 
-  const ready = near && quality !== null && quality !== "none";
+  const ready = intent && near && quality !== null && quality !== "none";
 
   return (
     <div
