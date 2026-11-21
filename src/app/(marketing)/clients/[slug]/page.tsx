@@ -21,7 +21,8 @@ type Props = {
 
 export async function generateStaticParams() {
   const slugs = await listPublishedClientSlugs();
-  return slugs.map((slug) => ({ slug }));
+  // Cache Components needs at least one param; the placeholder 404s at runtime.
+  return slugs.length ? slugs.map((slug) => ({ slug })) : [{ slug: "__placeholder__" }];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
